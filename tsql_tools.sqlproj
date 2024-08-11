@@ -61,6 +61,7 @@
   </ItemGroup>
   <ItemGroup>
     <Build Include="Schemas\tsql_tools.sql" />
-    <None Include="Stored Procedures\tsql_tools.get_all_tables_size.sql" />
+    <Build Include="Stored Procedures\tsql_tools.get_all_tables_size.sql" />
+    <Build Include="Stored Procedures\tsql_tools.get_all_databases_all_tables_columns.sql" />
   </ItemGroup>
 </Project>
