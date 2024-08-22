@@ -12,7 +12,8 @@ BEGIN
 	DECLARE @schema_id INT, @table_id INT, @full_table_name VARCHAR(256) = CONCAT(@schema_name, '.', @table_name)
 	, @temporal_type INT, @SQL VARCHAR(MAX), @period_cols_full_type sysname;
 
-	DECLARE @start_period_default_constraint sysname = CONCAT('DF_', @schema_name, '_', @table_name, '_', @start_time_column);
+	DECLARE @start_period_default_constraint sysname = CONCAT('DF_', @schema_name, '_', @table_name, '_', @start_time_column),
+	@end_period_default_constraint sysname = CONCAT('DF_', @schema_name, '_', @table_name, '_', @end_time_column);
 
 	SELECT @schema_id = sch.schema_id, @table_id = tab.object_id
 	FROM sys.schemas AS sch
@@ -29,31 +30,31 @@ BEGIN
 		THROW 50002, 'Input table does not exist', 1;
 	END;
 
+	SET @period_cols_full_type = CONCAT(@period_cols_type, '(', CAST(@period_cols_length AS CHAR(1)), ')'); 
+
 	DECLARE @col_id INT = (SELECT column_id FROM sys.columns WHERE Name = @start_time_column AND Object_ID = @table_id);
 	
 	-- Add sys_start_time
 	IF @col_id IS NULL
-	AND @object_id IS NOT NULL
 	BEGIN
 	SET @SQL = FORMATMESSAGE('ALTER TABLE %s
-	ADD %s %s NOT NULL CONSTRAINT %s DEFAULT SYSUTCDATETIME();
-	END;', @full_table_name, @start_time_column, @full_table_name, @start_period_default_constraint);
+	ADD %s %s NOT NULL CONSTRAINT %s DEFAULT SYSDATETIME();
+	END;', @full_table_name, @start_time_column, @period_cols_full_type, @start_period_default_constraint);
 
-	
-	SET @col_id = (SELECT column_id FROM sys.columns WHERE Name = @end_time_column AND Object_ID = @object_id);
-	SET @period_cols_full_type = CONCAT(@period_cols_type, '(', CAST(@period_cols_length AS CHAR(1)), ')'); 
+	EXEC (@SQL);
 
-	IF @col_id IS NULL
-	AND @object_id IS NOT NULL
-	BEGIN
-	ALTER TABLE dbo.environment
-	ADD
-	sys_end_time DATETIME2(3) NOT NULL
-	CONSTRAINT DF_environment_sys_end_time DEFAULT CONVERT(DATETIME2(3), '9999-12-31 23:59:59.999');
 	END;
-	GO
+
+	SET @col_id = (SELECT column_id FROM sys.columns WHERE Name = @end_time_column AND Object_ID = @table_id);
 	
-	DECLARE @object_id INT = OBJECT_ID('dbo.environment', 'u');
+	IF @col_id IS NULL
+	BEGIN
+		SET @SQL = FORMATMESSAGE('ALTER TABLE %s
+	ADD %s %s NOT NULL CONSTRAINT %s DEFAULT %s;
+	END;', @full_table_name, @end_time_column, @period_cols_full_type, @end_period_default_constraint, '''9999-12-31''');
+	
+	EXEC (@SQL);
+	END;
 	
 	
 	PRINT @temporal_type;
